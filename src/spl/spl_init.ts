@@ -1,7 +1,5 @@
 import {
-  appendTransactionMessageInstruction,
   appendTransactionMessageInstructions,
-  assertIsTransactionMessageWithBlockhashLifetime,
   assertIsTransactionWithBlockhashLifetime,
   createKeyPairSignerFromBytes,
   createSolanaRpc,
@@ -17,7 +15,6 @@ import {
 import {
   getInitializeMintInstruction,
   getMintSize,
-  getMintToInstruction,
   TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
 import { getCreateAccountInstruction } from "@solana-program/system";
@@ -33,52 +30,66 @@ const rpcSubscriptions = createSolanaRpcSubscriptions(
 
 (async () => {
   try {
-    const signer = createKeyPairSignerFromBytes(new Uint8Array(wallet));
-    // generate a new mint signer for the address
-    const mint = generateKeyPairSigner();
+    // both of these are async — without `await` you get a Promise, not a signer
+    const signer = await createKeyPairSignerFromBytes(new Uint8Array(wallet));
+    // generate a new keypair for the mint account itself
+    const mint = await generateKeyPairSigner();
 
-    // get the size of the mint
-    const space = await BigInt(getMintSize());
+    // size of a Mint account (82 bytes), as bigint for the system program
+    const space = BigInt(getMintSize());
 
-    // get the minimum balance for rent exemtpion
+    // minimum lamports so the account is rent-exempt
     const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
 
-    const {value: latestBlockhash} = await rpc.getLatestBlockhash().send();
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-    const sendAndConfirm = sendAndConfirmTransactionFactory({rpc, rpcSubscriptions});
+    const sendAndConfirm = sendAndConfirmTransactionFactory({
+      rpc,
+      rpcSubscriptions,
+    });
 
-    const msg = createTransactionMessage({version: 0});
+    const msg = createTransactionMessage({ version: 0 });
 
     const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
 
-    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msgWithPayer);
+    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
+      latestBlockhash,
+      msgWithPayer,
+    );
 
-    const txMessage = appendTransactionMessageInstructions([
-      getCreateAccountInstruction({
-        payer: signer,
-        newAccount: mint,
-        lamports: rent,
-        space,
-        programAddress: TOKEN_PROGRAM_ADDRESS,
-      }),
+    const txMessage = appendTransactionMessageInstructions(
+      [
+        // 1. system program: allocate the account, fund it, assign it to the token program
+        getCreateAccountInstruction({
+          payer: signer,
+          newAccount: mint,
+          lamports: rent,
+          space,
+          programAddress: TOKEN_PROGRAM_ADDRESS,
+        }),
 
-      getInitializeMintInstruction({
-        mint: mint.address,
-        decimals: 6,
-        mintAuthority: signer.address,
-      }),
-    ],
-    msgWithLifetime,
-  );
+        // 2. token program: write the mint data into that account
+        getInitializeMintInstruction({
+          mint: mint.address,
+          decimals: 6,
+          mintAuthority: signer.address,
+        }),
+      ],
+      msgWithLifetime,
+    );
 
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
+    // signs with every signer attached to the message: payer + mint (new account must sign)
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
 
-  assertIsTransactionMessageWithBlockhashLifetime(signedTx);
+    // this is a signed *transaction* now, not a message — so use the transaction assert
+    assertIsTransactionWithBlockhashLifetime(signedTx);
 
-  await sendAndConfirm(signedTx, {commitment: 'confirmed'});
-  
-  console.log(`Mint created: ${mint.address}`);
-    
+    const signature = getSignatureFromTransaction(signedTx);
+
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+    console.log(`Mint created: ${mint.address}`);
+    console.log(`Tx: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
   } catch (error) {
     console.log(error);
   }
