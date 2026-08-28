@@ -15,7 +15,7 @@ import {
 import wallet from "../../devnet-wallet.json";
 import {
   findAssociatedTokenPda,
-  getCreateAssociatedTokenInstructionAsync,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
   getTransferCheckedInstruction,
   TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
@@ -26,11 +26,14 @@ const rpcSubscriptions = createSolanaRpcSubscriptions(
   "wss://api.devnet.solana.com",
 );
 
+const token_decimals = 1_000_000n;
+
 //paste your mint address got from spl_init.ts
 const mint = address("3MadHmMPWUeCX6LCf8LKTY8f2vSrbp21YCnnhEeyrENT");
 
 //paste the address of the recipient
-const to = address("9EUd4VNcjMAysd7zQk3Q1a4tb28BYndLNBAQDiYnHJ64");
+// NOTE: this must be a *wallet* address, not a token account
+const to = address("5Gi5TzJqQvbQo6RdwqBpKaKk1L3s4TChucgnLzSyFqP4");
 
 (async () => {
   try {
@@ -54,9 +57,26 @@ const to = address("9EUd4VNcjMAysd7zQk3Q1a4tb28BYndLNBAQDiYnHJ64");
     });
     console.log(`Your toAta is : ${toAta}`);
 
-    // const createAtaIx =
+    // Instruction 1: make sure the *recipient* has an ATA for this mint.
+    // Idempotent variant: creates it if missing, no-op if it already exists,
+    // so this script is safe to run more than once.
+    const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
+      payer: signer, // we pay the rent for the recipient's account
+      mint,
+      owner: to, // the recipient owns it — they don't need to sign
+    });
 
-    // const transferTx =
+    // Instruction 2: move tokens from our ATA to theirs.
+    // `Checked` = the program verifies mint + decimals match, guarding against
+    // sending the wrong token or misreading the amount.
+    const transferTx = getTransferCheckedInstruction({
+      source: fromAta,
+      mint,
+      destination: toAta,
+      authority: signer, // owner of the source ATA must sign
+      amount: 10n * token_decimals, // 10 tokens in base units
+      decimals: 6, // must match the mint, or the tx fails
+    });
 
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
@@ -69,20 +89,20 @@ const to = address("9EUd4VNcjMAysd7zQk3Q1a4tb28BYndLNBAQDiYnHJ64");
       msgWithPayer,
     );
 
-    // const txMessage = appendTransactionMessageInstructions(
-    //   [createAtaIx, transferTx],
-    //   msgWithLiftime,
-    // );
+    const txMessage = appendTransactionMessageInstructions(
+      [createAtaIx, transferTx],
+      msgWithLiftime,
+    );
 
-    // const signedTx = await signTransactionMessageWithSigners(txMessage);
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
 
-    // assertIsTransactionWithBlockhashLifetime(signedTx);
+    assertIsTransactionWithBlockhashLifetime(signedTx);
 
-    // const signature = getSignatureFromTransaction(signedTx);
+    const signature = getSignatureFromTransaction(signedTx);
 
-    // await sendAndConfirm(signedTx, { commitment: "confirmed" });
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
 
-    // console.log(`mint txid: ${signature}`);
+    console.log(`transfer txid: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
   } catch (error) {
     console.log(error);
   }
