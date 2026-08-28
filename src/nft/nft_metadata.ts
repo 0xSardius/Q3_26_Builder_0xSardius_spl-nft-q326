@@ -23,15 +23,30 @@ umi.use(signerIdentity(signer));
 
 (async () => {
   try {
-    //change the image uri to your image uri obtained from nft_image.ts
+    // updated with the irys image uri obtained from nft_image.ts
     const image =
-      "https://gateway.irys.xyz/5EDyiNrMWfhjdsEwXLrwkHPwZoZB2m1A2Kudrfxo1tpr";
+      "https://gateway.irys.xyz/3Q74BVwutZWaHJDYNC851ALxAH16PD2HZTZ6N1TNqBzP";
 
     //json scheme : https://www.metaplex.com/docs/smart-contracts/core/json-schema
-    //change the metadata
-    // const metadata =
-    // const myUri =
-    // console.log(`metadata uri: ${myUri} `);
+
+    const metadata = {
+      name: "Orichalcum",
+      symbol: "ORI",
+      description: "The first coin struck from the lost metal of Atlantis",
+      image,
+      attributes: [
+        {trait_type: "Metal", value: "Orichalcum"},
+        {trait_type: "Deity", value: "Poseidon"},
+      ],
+      properties: {
+        files: [{uri: image, type: "image/jpeg"}],
+        category: "image",
+      },
+    };
+
+    const myUri = await umi.uploader.uploadJson(metadata);
+    console.log(`metadata uri: ${myUri} `);
+    
   } catch (error) {
     console.log("error", error);
   }
