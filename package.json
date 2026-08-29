@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run --reporter=verbose",
     "spl:init": "npx ts-node src/spl/spl_init.ts",
     "spl:metadata": "npx ts-node src/spl/spl_metadata.ts",
     "spl:uri": "npx ts-node src/spl/spl_uri.ts",
@@ -36,6 +36,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }
