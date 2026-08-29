@@ -44,8 +44,11 @@ Successfully created both instructions for the creating the account and getting 
 ## Task 2 — Mint an NFT with MPL Core
 
 ### Before
+- We worked on this in class together, following along I was able to build out the nft mint logic
+- metaplex core was essential using the json scheme provided in the docs was essential to do this fast
+- trading and collecting nfts on solana helped me understand why this was setup, I've seen the frontend version of this on many marketplaces
+- I chose the name "Orichalcum" a mythic metal from Atlantic (I like mythology).
 
-4. 
 
 ### After
 
@@ -54,8 +57,14 @@ Successfully created both instructions for the creating the account and getting 
 
 ### Before
 
-### After
+- Update checks whether the signing pubket matches the asset's stored update authority. When you mint in nft_mint.ts, your wallet becoems the owner and update authiruty.
+- An update changes metadata field, and optionally updateAuthroity if you pass those args in. It does not change the asset address, owner, or the updateAuthority itself (unless explicitly stated.)
+- update will need the asset object, not just the address, because plugins on the asset can require extra accounts in the instrution, and the plugin list must be read by the helper from the fetched object.
 
+### After
+- had some slight issues with type errors in the async call. SOme exploration and awaiting both calls helped fix things.
+- minor trailing spaces in the uri had to fix as well. 
+- reanmed to Orichalcum Reforged, and added some new attributes.
 
 ## Task 4 (ext) — Mint a second NFT
 

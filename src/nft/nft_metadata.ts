@@ -30,13 +30,15 @@ umi.use(signerIdentity(signer));
     //json scheme : https://www.metaplex.com/docs/smart-contracts/core/json-schema
 
     const metadata = {
-      name: "Orichalcum",
+      name: "Orichalcum Reforged",
       symbol: "ORI",
       description: "The first coin struck from the lost metal of Atlantis",
       image,
       attributes: [
         {trait_type: "Metal", value: "Orichalcum"},
         {trait_type: "Deity", value: "Poseidon"},
+        {trait_type: "Origin", value: "Atlantis"},
+        {trait_type: "Edition", value: "Reforged"},
       ],
       properties: {
         files: [{uri: image, type: "image/jpeg"}],

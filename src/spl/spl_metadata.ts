@@ -34,7 +34,7 @@ umi.use(signerIdentity(signer));
     const data: DataV2Args = {
       name: "Orichalcum",
       symbol: "ORI",
-      uri: "https://arweave.net/123456",
+      uri: "https://gateway.irys.xyz/2PrGiSFzKwkYm8Y7siT4aAyt6U9JmH6egCJMutexaX1v",
       sellerFeeBasisPoints: 1,
       creators: null,
       collection: null,
@@ -59,4 +59,3 @@ umi.use(signerIdentity(signer));
   }
 })();
 
-//43ttSnN9qaVi8TDcWwBZo5mUbfKDXY8d1N7exdJojJxV7qjKuwXoEh7qASXbFU4QFrAEFzZvcmWpRch434hSVNLN

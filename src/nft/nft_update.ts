@@ -22,16 +22,22 @@ umi.use(signerIdentity(signer));
 umi.use(mplCore());
 
 //paste the asset address from nft_mint.ts
-const asset = publicKey("");
+const assetAddress = publicKey("8HAbQYnRmYXpRBfzSZF9nDvaEPieJ5Q5FnU8njrihQbY");
 
-//a new metadata uri (upload a new JSON with nft_metadata.ts, or reuse the old one and only change the name)
-const newUri = "";
+//a new metadata uri (created in nft_metadata.ts, added two new attributes)
+const newUri = "https://gateway.irys.xyz/ARvTwn6oDHTFjvn3Nrbc8nVCW373pfi47JpLkG5sors8";
 
 (async () => {
   try {
-    // your code
+   const asset = await fetchAsset(umi, assetAddress);
 
-    // console.log(`updated: https://core.metaplex.com/explorer/${asset}?env=devnet`);
+   await update(umi, {
+    asset,
+    name: "Orichalcum Reforged",
+    uri: newUri,
+   }).sendAndConfirm(umi);
+
+    console.log(`updated: https://core.metaplex.com/explorer/${assetAddress}?env=devnet`);
   } catch (e) {
     console.log(`error ${e}`);
   }
