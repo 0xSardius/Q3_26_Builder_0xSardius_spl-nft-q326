@@ -28,7 +28,7 @@ umi.use(mplCore());
     //add you nft name and metadata uri
     const tx = await create(umi, {
       asset,
-      name: "Orichalcum",
+      name: "Orichalcum #2",
       uri: metadataUri,
     }).sendAndConfirm(umi);
 

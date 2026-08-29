@@ -22,7 +22,7 @@ umi.use(signerIdentity(signer));
 umi.use(mplCore());
 
 //paste an asset address (mint a second one with nft_mint.ts — Task 4)
-const asset = publicKey("");
+const asset = publicKey("9u6t3aPYjEfw6a4U1TB4gka9WfniaoxuzKvMFtRjVFMH");
 
 //a WALLET address to send to
 const newOwner = publicKey("");
