@@ -25,7 +25,7 @@ umi.use(mplCore());
 const asset = publicKey("9u6t3aPYjEfw6a4U1TB4gka9WfniaoxuzKvMFtRjVFMH");
 
 //a WALLET address to send to
-const newOwner = publicKey("");
+const newOwner = publicKey("8MNjAtaa3H9gqjUTcpR8j85BX4gXQXMdbv1WwCDFXRBX");
 
 (async () => {
   try {

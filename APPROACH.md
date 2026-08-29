@@ -70,12 +70,18 @@ Successfully created both instructions for the creating the account and getting 
 
 ### Before
 
+-
+
 ### After
 
 
 ## Task 5 (ext) — Transfer the NFT to another wallet
 
 ### Before
+
+ The transfer is signed by the owner, and the field the asset compares is the publickey and signers address derived as a pda
+- the recipient would automatically get a token account created for them when sent the NFT. They would need SOL to be able to send it agin, not to receive. THey don't need to sign to receive it.
+- a new token account is created for the next NFT, even if titled the same, it would have a unique address (from Idempotent?)
 
 ### After
 
