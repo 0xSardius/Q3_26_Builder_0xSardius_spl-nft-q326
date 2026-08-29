@@ -84,10 +84,19 @@ Successfully created both instructions for the creating the account and getting 
 - Second run fails — the first transfer rewrote owner to wallet 2, and the script still signs as wallet 1, so the owner check rejects it. Transfer isn't idempotent because it changes the field it authorizes against.
 
 ### After
-
+- error [NoApprovals] Neither the asset or any plugins have approved this operation
+-  Program CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d failed: custom program error: 0x1a
+- Above failed on a secong transfer
 
 ## Task 6 (ext) — Burn the NFT and reclaim rent
 
 ### Before
+- wallet2, the new asset owner, must sign to burn it. We have to change it to load wallet2 as the signer in order to burn the transferred NFT.
+- we will need to airdrop to wallet2 in order to burn. It can't burn without SOL. If we keep wallet1 as the identity/payer, passing authority: wallet2Signer would mean wallet 2 needs zero SOL.
+- It will return exists, false, because an account with no lamports doesn't exist onchain. The reclaimed rent land in the burning wallet.
 
 ### After
+
+- Successfully burned post-transfer by using the 2nd wallet as the signer.
+- My prediction was correct about the airdrop, we had to fund the transferred to wallet to get it to work.
+- I also had to change the standard dev-wallet to wallet2 in order to complete

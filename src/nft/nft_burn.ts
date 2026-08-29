@@ -2,7 +2,7 @@
 // Who may burn, where do the lamports go — and does the account still exist afterwards? Predict, then check.
 import { burn, fetchAsset, mplCore } from "@metaplex-foundation/mpl-core";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import wallet from "../../devnet-wallet.json";
+import wallet from "../../wallet2.json";
 import {
   createSignerFromKeypair,
   publicKey,
@@ -22,13 +22,18 @@ umi.use(signerIdentity(signer));
 umi.use(mplCore());
 
 //paste the asset address to burn (must be owned by this wallet)
-const asset = publicKey("");
+const asset = publicKey("9u6t3aPYjEfw6a4U1TB4gka9WfniaoxuzKvMFtRjVFMH");
 
 (async () => {
   try {
-    // your code
+    const assetObj = await fetchAsset(umi, asset);
 
-    // console.log(`burned: https://explorer.solana.com/address/${asset}?cluster=devnet`);
+    await burn(umi, {
+      asset: assetObj,
+      authority: signer,
+    }).sendAndConfirm(umi);
+
+    console.log(`burned: https://explorer.solana.com/address/${asset}?cluster=devnet`);
   } catch (e) {
     console.log(`error ${e}`);
   }
