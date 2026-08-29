@@ -81,7 +81,7 @@ Successfully created both instructions for the creating the account and getting 
 
  The transfer is signed by the owner, and the program compares the owner to the signer field.
 - The recipient needs no SOL, signature, or account to receive an NFT.
-- running the mint twice mints another nft with the same owner, metadata, and different address
+- Second run fails — the first transfer rewrote owner to wallet 2, and the script still signs as wallet 1, so the owner check rejects it. Transfer isn't idempotent because it changes the field it authorizes against.
 
 ### After
 

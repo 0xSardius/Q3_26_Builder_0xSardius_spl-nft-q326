@@ -25,13 +25,17 @@ umi.use(mplCore());
 const asset = publicKey("9u6t3aPYjEfw6a4U1TB4gka9WfniaoxuzKvMFtRjVFMH");
 
 //a WALLET address to send to
-const newOwner = publicKey("8MNjAtaa3H9gqjUTcpR8j85BX4gXQXMdbv1WwCDFXRBX");
+const newOwner = publicKey("9G5T41jGbmpezQAy25W87J2Tyr6hkDwTjZfymdBnWAKb");
 
 (async () => {
   try {
-    // your code
+    const assetObj = await fetchAsset(umi, asset);
+    await transfer(umi, {
+      asset: assetObj,
+      newOwner,
+    }).sendAndConfirm(umi);
 
-    // console.log(`transferred: https://core.metaplex.com/explorer/${asset}?env=devnet`);
+    console.log(`transferred: https://core.metaplex.com/explorer/${asset}?env=devnet`);
   } catch (e) {
     console.log(`error ${e}`);
   }
