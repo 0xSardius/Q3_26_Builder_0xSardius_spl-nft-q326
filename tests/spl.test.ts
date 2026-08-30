@@ -1,85 +1,192 @@
 import { describe, it, expect } from "vitest";
-import { rpc } from "./helpers";
-import { address, mint } from "@solana/kit"
-import { mintArgs } from "@metaplex-foundation/mpl-token-metadata";
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type KeyPairSigner,
+} from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  getMintToInstruction,
+  getTransferCheckedInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import { loadKitSigner, rpc, sendAndConfirm } from "./helpers";
 
-
-const MINT = address("3MadHmMPWUeCX6LCf8LKTY8f2vSrbp21YCnnhEeyrENT");
 const EXPECTED_DECIMALS = 6;
-const EXPECTED_MINT_AUTHORITY = "47mxV9vnVUkX8i5V8qDoHgauurV7w5Uc3cjH7Nk4rqBg";
+const ONE_TOKEN = 10n ** 6n;
+const MINT_AMOUNT = (100n * ONE_TOKEN).toString();
+const TRANSFER_AMOUNT = (10n * ONE_TOKEN).toString();
+const REMAINING_AMOUNT = (90n * ONE_TOKEN).toString();
 
+describe("Create a mint account, mint 100 tokens, and send 10", () => {
+  let signer: KeyPairSigner;
+  let mint: KeyPairSigner;
 
+  it("should successfully create a mint account", async () => {
+    signer = await loadKitSigner();
+    mint = await generateKeyPairSigner();
 
-describe("Create a mint account", () => {
-    it("should successfullycreate a mint account", async () => {
-        // ACT
-      const signer = await createKeyPairSignerFromBytes(new Uint8Array(wallet));
-      // generate a new keypair for the mint account itself
-      const mint = await generateKeyPairSigner();
+    const space = BigInt(getMintSize());
+    const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-      // size of a Mint account (82 bytes), as bigint for the system program
-      const space = BigInt(getMintSize());
+    const msg = createTransactionMessage({ version: 0 });
+    const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
+    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
+      latestBlockhash,
+      msgWithPayer,
+    );
 
-      // minimum lamports so the account is rent-exempt
-      const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+    const txMessage = appendTransactionMessageInstructions(
+      [
+        getCreateAccountInstruction({
+          payer: signer,
+          newAccount: mint,
+          lamports: rent,
+          space,
+          programAddress: TOKEN_PROGRAM_ADDRESS,
+        }),
+        getInitializeMintInstruction({
+          mint: mint.address,
+          decimals: EXPECTED_DECIMALS,
+          mintAuthority: signer.address,
+        }),
+      ],
+      msgWithLifetime,
+    );
 
-      const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    assertIsTransactionWithBlockhashLifetime(signedTx);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
 
-      const sendAndConfirm = sendAndConfirmTransactionFactory({
-        rpc,
-        rpcSubscriptions,
+    const { value: account } = await rpc
+      .getAccountInfo(mint.address, { encoding: "jsonParsed" })
+      .send();
+
+    expect(account).not.toBeNull();
+    expect(account!.owner).toBe(TOKEN_PROGRAM_ADDRESS);
+
+    const info = (account!.data as { parsed: { info: Record<string, unknown> } })
+      .parsed.info;
+    expect(info.decimals).toBe(EXPECTED_DECIMALS);
+    expect(info.mintAuthority).toBe(signer.address);
+    expect(info.isInitialized).toBe(true);
+    expect(info.supply).toBe("0");
+  });
+
+  it("should successfully mint 100 tokens to the signer", async () => {
+    const [ata] = await findAssociatedTokenPda({
+      mint: mint.address,
+      owner: signer.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
+      payer: signer,
+      mint: mint.address,
+      owner: signer.address,
+    });
+
+    const mintToIx = getMintToInstruction({
+      mint: mint.address,
+      token: ata,
+      mintAuthority: signer,
+      amount: 100n * ONE_TOKEN,
+    });
+
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+    const msg = createTransactionMessage({ version: 0 });
+    const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
+    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
+      latestBlockhash,
+      msgWithPayer,
+    );
+
+    const txMessage = appendTransactionMessageInstructions(
+      [createAtaIx, mintToIx],
+      msgWithLifetime,
+    );
+
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    assertIsTransactionWithBlockhashLifetime(signedTx);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+    const { value: tokenBalance } = await rpc.getTokenAccountBalance(ata).send();
+    const { value: supply } = await rpc.getTokenSupply(mint.address).send();
+
+    expect(tokenBalance?.amount).toBe(MINT_AMOUNT);
+    expect(supply?.amount).toBe(MINT_AMOUNT);
+  });
+
+  it("should transfer 10 tokens to a recipient", async () => {
+    const recipient = await generateKeyPairSigner();
+
+    const [fromAta] = await findAssociatedTokenPda({
+      mint: mint.address,
+      owner: signer.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [toAta] = await findAssociatedTokenPda({
+      mint: mint.address,
+      owner: recipient.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const createRecipientAtaIx =
+      await getCreateAssociatedTokenIdempotentInstructionAsync({
+        payer: signer,
+        mint: mint.address,
+        owner: recipient.address,
       });
 
-      const msg = createTransactionMessage({ version: 0 });
-
-      const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
-
-      const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
-        latestBlockhash,
-        msgWithPayer,
-      );
-
-      const txMessage = appendTransactionMessageInstructions(
-        [
-          // 1. system program: allocate the account, fund it, assign it to the token program
-          getCreateAccountInstruction({
-            payer: signer,
-            newAccount: mint,
-            lamports: rent,
-            space,
-            programAddress: TOKEN_PROGRAM_ADDRESS,
-          }),
-
-          // 2. token program: write the mint data into that account
-          getInitializeMintInstruction({
-            mint: mint.address,
-            decimals: 6,
-            mintAuthority: signer.address,
-          }),
-        ],
-        msgWithLifetime,
-      );
-
-    // signs with every signer attached to the message: payer + mint (new account must sign)
-    const signedTx = await signTransactionMessageWithSigners(txMessage);
-
-    // this is a signed *transaction* now, not a message — so use the transaction assert
-    assertIsTransactionWithBlockhashLifetime(signedTx);
-
-    const signature = getSignatureFromTransaction(signedTx);
-
-    await sendAndConfirm(signedTx, { commitment: "confirmed" });
-        //Read
-        const {value : account} = await rpc
-        .getAccountInfo(mint.address, {encoding: "jsonParsed"})
-        .send();
-
-        expect(account).not.toBeNull();
-
-        // ASSERT: parsed mint fields match what spl_init created
-        const info = (account!.data as any).parsed.info;
-        expect(info.decimals).toBe(EXPECTED_DECIMALS);
-        expect(info.mintAuthority).toBe(EXPECTED_MINT_AUTHORITY);
-        expect(info.isInitialized).toBe(true);
+    const transferIx = getTransferCheckedInstruction({
+      source: fromAta,
+      mint: mint.address,
+      destination: toAta,
+      authority: signer,
+      amount: 10n * ONE_TOKEN,
+      decimals: EXPECTED_DECIMALS,
     });
+
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+    const msg = createTransactionMessage({ version: 0 });
+    const msgWithPayer = setTransactionMessageFeePayerSigner(signer, msg);
+    const msgWithLifetime = setTransactionMessageLifetimeUsingBlockhash(
+      latestBlockhash,
+      msgWithPayer,
+    );
+
+    const txMessage = appendTransactionMessageInstructions(
+      [createRecipientAtaIx, transferIx],
+      msgWithLifetime,
+    );
+
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    assertIsTransactionWithBlockhashLifetime(signedTx);
+    await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+    const { value: senderBalance } = await rpc
+      .getTokenAccountBalance(fromAta)
+      .send();
+    const { value: recipientBalance } = await rpc
+      .getTokenAccountBalance(toAta)
+      .send();
+    const { value: supply } = await rpc.getTokenSupply(mint.address).send();
+
+    expect(senderBalance?.amount).toBe(REMAINING_AMOUNT);
+    expect(recipientBalance?.amount).toBe(TRANSFER_AMOUNT);
+    expect(supply?.amount).toBe(MINT_AMOUNT);
+  });
 });
