@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { create, burn, fetchAsset, transfer, update } from "@metaplex-foundation/mpl-core";
 import { generateSigner, type PublicKey } from "@metaplex-foundation/umi";
-import { address, lamports } from "@solana/kit";
 import wallet2 from "../wallet2.json";
-import { loadUmi, rpc, wallet2Signer } from "./helpers";
+import { loadUmi, wallet2Signer } from "./helpers";
 
 const METADATA_URI =
   "https://gateway.irys.xyz/2PrGiSFzKwkYm8Y7siT4aAyt6U9JmH6egCJMutexaX1v";
@@ -118,11 +117,6 @@ describe("NFT lifecycle on devnet", () => {
   });
 
   it("should allow wallet2 to burn the transferred asset", async () => {
-    await rpc
-      .requestAirdrop(address(recipientAddress), lamports(1_000_000_000n))
-      .send()
-      .catch(() => undefined);
-
     const umi = loadUmi(wallet2);
     const asset = await fetchAsset(umi, secondAssetAddress);
 
@@ -134,5 +128,14 @@ describe("NFT lifecycle on devnet", () => {
     }).sendAndConfirm(umi);
 
     await expect(fetchAsset(umi, secondAssetAddress)).rejects.toThrow();
+
+    // Core leaves a 1-byte Key::Uninitialized tombstone so the address can
+    // never be re-initialized as an asset; only part of the rent comes back.
+    const tombstone = await umi.rpc.getAccount(secondAssetAddress);
+    expect(tombstone.exists).toBe(true);
+    if (tombstone.exists) {
+      expect(tombstone.data.length).toBe(1);
+      expect(tombstone.data[0]).toBe(0);
+    }
   });
 });
